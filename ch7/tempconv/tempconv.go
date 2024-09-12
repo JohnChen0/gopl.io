@@ -33,7 +33,9 @@ type Value interface {
 
 //!+celsiusFlag
 // *celsiusFlag satisfies the flag.Value interface.
-type celsiusFlag struct{ Celsius }
+type celsiusFlag Celsius
+
+func (cf celsiusFlag) String() string { return Celsius(cf).String() }
 
 func (f *celsiusFlag) Set(s string) error {
 	var unit string
@@ -41,10 +43,10 @@ func (f *celsiusFlag) Set(s string) error {
 	fmt.Sscanf(s, "%f%s", &value, &unit) // no error check needed
 	switch unit {
 	case "C", "°C":
-		f.Celsius = Celsius(value)
+		*f = celsiusFlag(value)
 		return nil
 	case "F", "°F":
-		f.Celsius = FToC(Fahrenheit(value))
+		*f = celsiusFlag(FToC(Fahrenheit(value)))
 		return nil
 	}
 	return fmt.Errorf("invalid temperature %q", s)
@@ -58,9 +60,9 @@ func (f *celsiusFlag) Set(s string) error {
 // default value, and usage, and returns the address of the flag variable.
 // The flag argument must have a quantity and a unit, e.g., "100C".
 func CelsiusFlag(name string, value Celsius, usage string) *Celsius {
-	f := celsiusFlag{value}
+	f := celsiusFlag(value)
 	flag.CommandLine.Var(&f, name, usage)
-	return &f.Celsius
+	return (*Celsius)(&f)
 }
 
 //!-CelsiusFlag
