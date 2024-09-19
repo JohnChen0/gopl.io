@@ -4,21 +4,25 @@
 // This file is just a place to put example code from the book.
 // It does not actually run any code in gopl.io/ch8/thumbnail.
 
-package thumbnail_test
+// The following changes have been made to this file from the original:
+// * Renamed and moved to thumbnail package, so its functions can be called.
+// * The makeThumbnails* functions are now exported.
+// * Added MakeThumbnails7 function, which is similar to MakeThumbnails6 from
+//   the book, but without using WaitGroup.
+
+package thumbnail
 
 import (
 	"log"
 	"os"
 	"sync"
-
-	"gopl.io/ch8/thumbnail"
 )
 
 //!+1
 // makeThumbnails makes thumbnails of the specified files.
-func makeThumbnails(filenames []string) {
+func MakeThumbnails(filenames []string) {
 	for _, f := range filenames {
-		if _, err := thumbnail.ImageFile(f); err != nil {
+		if _, err := ImageFile(f); err != nil {
 			log.Println(err)
 		}
 	}
@@ -28,9 +32,9 @@ func makeThumbnails(filenames []string) {
 
 //!+2
 // NOTE: incorrect!
-func makeThumbnails2(filenames []string) {
+func MakeThumbnails2(filenames []string) {
 	for _, f := range filenames {
-		go thumbnail.ImageFile(f) // NOTE: ignoring errors
+		go ImageFile(f) // NOTE: ignoring errors
 	}
 }
 
@@ -38,11 +42,11 @@ func makeThumbnails2(filenames []string) {
 
 //!+3
 // makeThumbnails3 makes thumbnails of the specified files in parallel.
-func makeThumbnails3(filenames []string) {
+func MakeThumbnails3(filenames []string) {
 	ch := make(chan struct{})
 	for _, f := range filenames {
 		go func(f string) {
-			thumbnail.ImageFile(f) // NOTE: ignoring errors
+			ImageFile(f) // NOTE: ignoring errors
 			ch <- struct{}{}
 		}(f)
 	}
@@ -58,12 +62,12 @@ func makeThumbnails3(filenames []string) {
 //!+4
 // makeThumbnails4 makes thumbnails for the specified files in parallel.
 // It returns an error if any step failed.
-func makeThumbnails4(filenames []string) error {
+func MakeThumbnails4(filenames []string) error {
 	errors := make(chan error)
 
 	for _, f := range filenames {
 		go func(f string) {
-			_, err := thumbnail.ImageFile(f)
+			_, err := ImageFile(f)
 			errors <- err
 		}(f)
 	}
@@ -83,7 +87,7 @@ func makeThumbnails4(filenames []string) error {
 // makeThumbnails5 makes thumbnails for the specified files in parallel.
 // It returns the generated file names in an arbitrary order,
 // or an error if any step failed.
-func makeThumbnails5(filenames []string) (thumbfiles []string, err error) {
+func MakeThumbnails5(filenames []string) (thumbfiles []string, err error) {
 	type item struct {
 		thumbfile string
 		err       error
@@ -93,7 +97,7 @@ func makeThumbnails5(filenames []string) (thumbfiles []string, err error) {
 	for _, f := range filenames {
 		go func(f string) {
 			var it item
-			it.thumbfile, it.err = thumbnail.ImageFile(f)
+			it.thumbfile, it.err = ImageFile(f)
 			ch <- it
 		}(f)
 	}
@@ -114,7 +118,7 @@ func makeThumbnails5(filenames []string) (thumbfiles []string, err error) {
 //!+6
 // makeThumbnails6 makes thumbnails for each file received from the channel.
 // It returns the number of bytes occupied by the files it creates.
-func makeThumbnails6(filenames <-chan string) int64 {
+func MakeThumbnails6(filenames <-chan string) int64 {
 	sizes := make(chan int64)
 	var wg sync.WaitGroup // number of working goroutines
 	for f := range filenames {
@@ -122,7 +126,7 @@ func makeThumbnails6(filenames <-chan string) int64 {
 		// worker
 		go func(f string) {
 			defer wg.Done()
-			thumb, err := thumbnail.ImageFile(f)
+			thumb, err := ImageFile(f)
 			if err != nil {
 				log.Println(err)
 				return
@@ -146,3 +150,30 @@ func makeThumbnails6(filenames <-chan string) int64 {
 }
 
 //!-6
+
+// MakeThumbnails7 is similar to MakeThumbnails6, but without using WaitGroup.
+func MakeThumbnails7(filenames <-chan string) int64 {
+	sizes := make(chan int64)
+	remaining := 0
+	for f := range filenames {
+		remaining++
+		// worker
+		go func(f string) {
+			thumb, err := ImageFile(f)
+			if err != nil {
+				log.Println(err)
+				sizes <- 0 // Making sure every worker sends a size
+				return
+			}
+			info, _ := os.Stat(thumb) // OK to ignore error
+			sizes <- info.Size()
+		}(f)
+	}
+
+	var total int64
+	for remaining > 0 {
+		total += <-sizes
+		remaining--
+	}
+	return total
+}
