@@ -21,10 +21,7 @@ func Deposit(amount int) {
 }
 
 func Balance() int {
-	mu.Lock()
-	b := balance
-	mu.Unlock()
-	return b
+	return balance
 }
 
 //!-

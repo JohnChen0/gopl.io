@@ -11,6 +11,22 @@ import (
 )
 
 func TestBank(t *testing.T) {
+	// A gorountine to check the balance.
+	go func() {
+		prevBalance := 0
+		for {
+			balance := bank.Balance()
+			if balance < 0 || balance > (1000+1)*1000/2 {
+				t.Errorf("Bad balance %d", balance)
+			}
+			if balance < prevBalance {
+				t.Errorf("Balance went down from %d to %d",
+				         prevBalance, balance)
+			}
+			prevBalance = balance
+		}
+	}()
+
 	// Deposit [1..1000] concurrently.
 	var n sync.WaitGroup
 	for i := 1; i <= 1000; i++ {
