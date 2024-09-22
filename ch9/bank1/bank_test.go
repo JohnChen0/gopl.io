@@ -11,12 +11,31 @@ import (
 )
 
 func TestBank(t *testing.T) {
+	aliceBalances := make(map[int]int)
 	done := make(chan struct{})
+	for i := 0; i < 1000; i++ {
+		aliceBalance, finalBalance := runTest(done)
+		if aliceBalance != 200 && aliceBalance != 300 {
+			t.Errorf("Unexpected balance %d for Alice", aliceBalance)
+		}
+		if finalBalance != 300 {
+			t.Errorf("Unexpected final balance %d", finalBalance)
+		}
+		aliceBalances[aliceBalance]++
+		bank.Deposit(-300)	// Reset balance to 0
+	}
+	for aliceBalance, count := range aliceBalances {
+		fmt.Println("Alice see balance", aliceBalance, count, "times")
+	}
+}
+
+func runTest(done chan struct{}) (int, int) {
+	var aliceBalance int
 
 	// Alice
 	go func() {
 		bank.Deposit(200)
-		fmt.Println("=", bank.Balance())
+		aliceBalance = bank.Balance()
 		done <- struct{}{}
 	}()
 
@@ -30,7 +49,5 @@ func TestBank(t *testing.T) {
 	<-done
 	<-done
 
-	if got, want := bank.Balance(), 300; got != want {
-		t.Errorf("Balance = %d, want %d", got, want)
-	}
+	return aliceBalance, bank.Balance()
 }
